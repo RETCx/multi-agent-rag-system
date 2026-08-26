@@ -1,4 +1,5 @@
 import os
+import re
 from langchain.tools import tool
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -14,16 +15,30 @@ def load_and_chunk(filepath: str = DATA_PATH) -> list[str]:
     return chunks
 
 
-def retrieve(query: str, top_k: int = 3, threshold: float = 0.03) -> list[dict]:
+def preprocess_text(text: str) -> str:
+    """Normalize text for better sparse retrieval (TF-IDF)."""
+    # Lowercase and remove punctuation
+    text = text.lower()
+    text = re.sub(r'[^\w\s]', '', text)
+    return text
+
+
+def retrieve(query: str, top_k: int = 3, threshold: float = 0.03, chunks: list[str] | None = None) -> list[dict]:
     """
     Search chunks using TF-IDF + cosine similarity.
 
     Returns a list of dicts with keys: text, section, score.
     Only chunks with score > threshold are returned.
+    Accepts pre-loaded chunks to avoid redundant file I/O.
     """
-    chunks = load_and_chunk()
+    if chunks is None:
+        chunks = load_and_chunk()
+
+    processed_chunks = [preprocess_text(c) for c in chunks]
+    processed_query = preprocess_text(query)
+
     vectorizer = TfidfVectorizer(stop_words="english")
-    tfidf_matrix = vectorizer.fit_transform(chunks + [query])
+    tfidf_matrix = vectorizer.fit_transform(processed_chunks + [processed_query])
 
     query_vec = tfidf_matrix[-1]
     chunk_vecs = tfidf_matrix[:-1]
@@ -48,7 +63,7 @@ def retrieve(query: str, top_k: int = 3, threshold: float = 0.03) -> list[dict]:
 def retrieve_from_knowledge_base(query: str) -> str:
     """Search knowledge_base.txt and return relevant text snippets for a given query."""
     chunks = load_and_chunk()
-    results = retrieve(query)
+    results = retrieve(query, chunks=chunks)  
 
     # retrieval pipeline 
     print(f"\n{'─' * 55}")
