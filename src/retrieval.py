@@ -5,6 +5,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "knowledge_base.txt")
+THRESHOLD: float = 0.03
+TOP_K: int = 3
 
 
 def load_and_chunk(filepath: str = DATA_PATH) -> list[str]:
@@ -63,12 +65,11 @@ def retrieve(query: str, top_k: int = 3, threshold: float = 0.03, chunks: list[s
 def retrieve_from_knowledge_base(query: str) -> str:
     """Search knowledge_base.txt and return relevant text snippets for a given query."""
     chunks = load_and_chunk()
-    results = retrieve(query, chunks=chunks)  
+    results = retrieve(query, top_k=TOP_K, threshold=THRESHOLD, chunks=chunks)
 
-    # retrieval pipeline 
     print(f"\n{'─' * 55}")
     print(f"[Data Retriever] Query    : {query}")
-    print(f"[Data Retriever] Indexed  : {len(chunks)} chunks | top_k=3 | threshold=0.03")
+    print(f"[Data Retriever] Indexed  : {len(chunks)} chunks | top_k={TOP_K} | threshold={THRESHOLD}")
     if not results:
         print("[Data Retriever] Retrieved: (none above threshold)")
     else:
