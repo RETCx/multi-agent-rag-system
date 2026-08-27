@@ -7,6 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "knowledge_base.txt")
 THRESHOLD: float = 0.03
 TOP_K: int = 3
+MAX_CHUNKS_PER_SECTION: int = 2
 
 
 def load_and_chunk(filepath: str = DATA_PATH) -> list[str]:
@@ -25,12 +26,24 @@ def preprocess_text(text: str) -> str:
     return text
 
 
-def retrieve(query: str, top_k: int = 3, threshold: float = 0.03, chunks: list[str] | None = None) -> list[dict]:
+def _make_chunk_id(section: str, index: int) -> str:
+    """Generate a stable slug-based chunk ID from section header and position."""
+    slug = re.sub(r"\W+", "_", section.lower()).strip("_")
+    return f"{slug}_{index:02d}"
+
+
+def retrieve(
+    query: str,
+    top_k: int = TOP_K,
+    threshold: float = THRESHOLD,
+    max_per_section: int = MAX_CHUNKS_PER_SECTION,
+    chunks: list[str] | None = None,
+) -> list[dict]:
     """
     Search chunks using TF-IDF + cosine similarity.
 
-    Returns a list of dicts with keys: text, section, score.
-    Only chunks with score > threshold are returned.
+    Returns up to top_k dicts with keys: chunk_id, text, section, score.
+    Applies threshold filter and section diversity filter before returning.
     Accepts pre-loaded chunks to avoid redundant file I/O.
     """
     if chunks is None:
@@ -38,25 +51,39 @@ def retrieve(query: str, top_k: int = 3, threshold: float = 0.03, chunks: list[s
 
     processed_chunks = [preprocess_text(c) for c in chunks]
     processed_query = preprocess_text(query)
-
-    vectorizer = TfidfVectorizer(stop_words="english")
+    
+    vectorizer = TfidfVectorizer(
+        stop_words="english",
+        sublinear_tf=True,
+    )
     tfidf_matrix = vectorizer.fit_transform(processed_chunks + [processed_query])
 
     query_vec = tfidf_matrix[-1]
     chunk_vecs = tfidf_matrix[:-1]
     scores = cosine_similarity(query_vec, chunk_vecs).flatten()
 
-    top_indices = scores.argsort()[-top_k:][::-1]
+    # Fetch more candidates than top_k to allow for diversity filtering
+    candidate_count = min(top_k * 3, len(chunks))
+    candidate_indices = scores.argsort()[-candidate_count:][::-1]
 
+    # Apply threshold + diversity filter
+    seen_sections: dict[str, int] = {}
     results = []
-    for i in top_indices:
-        if scores[i] > threshold:
-            section = chunks[i].split("\n")[0].strip()
-            results.append({
-                "text": chunks[i],
-                "section": section,
-                "score": round(float(scores[i]), 3),
-            })
+    for i in candidate_indices:
+        if scores[i] <= threshold:
+            continue
+        section = chunks[i].split("\n")[0].strip()
+        if seen_sections.get(section, 0) >= max_per_section:
+            continue
+        seen_sections[section] = seen_sections.get(section, 0) + 1
+        results.append({
+            "chunk_id": _make_chunk_id(section, i),
+            "text": chunks[i],
+            "section": section,
+            "score": round(float(scores[i]), 3),
+        })
+        if len(results) == top_k:
+            break
 
     return results
 

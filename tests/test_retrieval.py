@@ -26,6 +26,7 @@ class TestRetrieve:
         results = retrieve("international travel policy")
         assert len(results) > 0
         for r in results:
+            assert "chunk_id" in r
             assert "text" in r
             assert "section" in r
             assert "score" in r
