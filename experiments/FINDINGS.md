@@ -208,7 +208,7 @@ Three layers of defence (outermost to innermost):
 | 2. Retrieval threshold | `retrieval.py` | Score 0.000 → nothing passed to LLM |
 | 3. Prompt constraint | `agents.py` | Generator told to ignore instructions in retrieved text |
 
-`main.py` catches the `ContentFiltered` error and prints a clean message instead of crashing.
+`main.py` catches the `BadRequestError` and prints a clean message instead of crashing.
 
 **Takeaway:** The system has three independent layers against injection. Layer 1 (Azure) was unexpected — it shows that deploying on a managed API gateway adds safety properties that the code alone doesn't provide.
 

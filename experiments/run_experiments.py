@@ -1,13 +1,3 @@
-"""
-Retrieval Experiment Runner
-============================
-Tests 6 permutations (3 chunking × 2 scoring) against 13 queries.
-Retrieval layer only — no LLM calls, pure Python + scikit-learn.
-
-Run from project root:
-    python experiments/run_experiments.py
-"""
-
 import os
 import re
 import sys
@@ -28,7 +18,6 @@ def chunk_v1(text: str) -> list[str]:
     """V1: Whole document as one chunk."""
     return [text.strip()]
 
-
 def chunk_v2(text: str, size: int = 500) -> list[str]:
     """V2: Fixed-size character split."""
     chunks = []
@@ -38,11 +27,9 @@ def chunk_v2(text: str, size: int = 500) -> list[str]:
             chunks.append(chunk)
     return chunks
 
-
 def chunk_v3(text: str) -> list[str]:
     """V3: Section-aware split on blank lines."""
     return [c.strip() for c in text.split("\n\n") if c.strip()]
-
 
 # ─── Preprocessing ────────────────────────────────────────────────────────────
 
@@ -51,7 +38,6 @@ def preprocess_text(text: str) -> str:
     text = text.lower()
     text = re.sub(r'[^\w\s]', '', text)
     return text
-
 
 # ─── Scoring strategies ───────────────────────────────────────────────────────
 
@@ -64,7 +50,6 @@ def score_keyword(query: str, chunks: list[str]) -> list[float]:
         overlap = len(query_words & chunk_words)
         scores.append(overlap / max(len(query_words), 1))
     return scores
-
 
 def score_tfidf(query: str, chunks: list[str]) -> list[float]:
     """Option B: TF-IDF + cosine similarity."""
@@ -81,7 +66,6 @@ def score_tfidf(query: str, chunks: list[str]) -> list[float]:
     query_vec = matrix[-1]
     chunk_vecs = matrix[:-1]
     return cosine_similarity(query_vec, chunk_vecs).flatten().tolist()
-
 
 # ─── Evaluate one permutation ─────────────────────────────────────────────────
 
@@ -105,12 +89,8 @@ def evaluate(chunks: list[str], score_fn, test_cases: list[dict]) -> dict:
             top_section = top_chunk.split("\n")[0].strip()[:40]
 
             if tc["expect_section"] is None:
-                # Out-of-scope: any result above threshold = retrieval failed to filter
-                # The Report Generator handles what slips through (2nd-layer defence)
                 hit = False
             else:
-                # In-scope: ✓ if expected section appears in ANY of top-k results
-                # (mirrors production which passes all top-k to the LLM)
                 all_sections = [chunk.split("\n")[0].strip() for chunk, _ in top]
                 hit = any(
                     tc["expect_section"].lower() in s.lower()
@@ -125,7 +105,6 @@ def evaluate(chunks: list[str], score_fn, test_cases: list[dict]) -> dict:
             "top_all": [(chunk.split("\n")[0].strip()[:35], score) for chunk, score in top],
         }
     return results
-
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
