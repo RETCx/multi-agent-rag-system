@@ -3,3 +3,4 @@ langgraph==1.2.11
 langchain-openai==1.6.0
 scikit-learn==1.9.0
 python-dotenv==1.2.3
+pytest==9.1.1
