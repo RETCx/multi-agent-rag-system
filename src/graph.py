@@ -1,12 +1,12 @@
 from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
-from agents import create_data_retriever, create_report_generator
-from utils import _extract_text
+from src.agents import create_data_retriever, create_report_generator
+from src.utils import _extract_text
 
 
 class AgentState(TypedDict):
     query: str      # user input
-    snippets: str   # filled by Data Retriever
+    snippets: list[str]  # filled by Data Retriever
     answer: str     # filled by Report Generator
 
 
@@ -21,16 +21,22 @@ def build_graph():
         return {"snippets": snippets}
     
     def generator_node(state: AgentState) -> dict:
-        snippet_count = state["snippets"].count("[Snippet")
-        print(f"[Report Generator] Generating answer from {snippet_count} snippet(s)...")
-    
+        snippets = state["snippets"]
+        print(f"[Report Generator] Generating answer from {len(snippets)} snippet(s)...")
+
+        if not snippets:
+            context_string = "No relevant information found in the knowledge base."
+        else:
+            context_string = "\n\n".join([f"[Snippet {i+1}]\n{s}" for i, s in enumerate(snippets)])
+
         result = generator_instance.invoke({
             "query": state["query"],
-            "snippets": state["snippets"],
+            "snippets": context_string,  
         })
         answer = _extract_text(result.content)
         return {"answer": answer}
 
+        
     graph = StateGraph(AgentState)
     graph.add_node("data_retriever", retriever_node)
     graph.add_node("report_generator", generator_node)
