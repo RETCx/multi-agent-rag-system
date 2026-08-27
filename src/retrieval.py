@@ -12,6 +12,8 @@ MAX_CHUNKS_PER_SECTION: int = 2
 
 def load_and_chunk(filepath: str = DATA_PATH) -> list[str]:
     """Load knowledge_base.txt and split into chunks by blank line."""
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Knowledge base file not found: {filepath}")
     with open(filepath, "r", encoding="utf-8") as f:
         text = f.read()
     chunks = [c.strip() for c in text.split("\n\n") if c.strip()]
@@ -51,7 +53,7 @@ def retrieve(
 
     processed_chunks = [preprocess_text(c) for c in chunks]
     processed_query = preprocess_text(query)
-    
+
     vectorizer = TfidfVectorizer(
         stop_words="english",
         sublinear_tf=True,
@@ -89,7 +91,7 @@ def retrieve(
 
 
 @tool
-def retrieve_from_knowledge_base(query: str) -> str:
+def retrieve_from_knowledge_base(query: str) -> list[str]:
     """Search knowledge_base.txt and return relevant text snippets for a given query."""
     chunks = load_and_chunk()
     results = retrieve(query, top_k=TOP_K, threshold=THRESHOLD, chunks=chunks)
@@ -105,13 +107,13 @@ def retrieve_from_knowledge_base(query: str) -> str:
     print(f"{'─' * 55}")
 
     if not results:
-        return "No relevant information found in the knowledge base."
+        return []
 
     output = []
     for i, r in enumerate(results, 1):
-        output.append(f"[Snippet {i}]\n{r['text']}")
+        output.append(r['text'])
 
-    return "\n\n".join(output)
+    return output
 
 
 if __name__ == "__main__":
