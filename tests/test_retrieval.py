@@ -85,8 +85,7 @@ class TestRetrieve:
 
     def test_out_of_scope_returns_empty(self):
         results = retrieve("quantum computing protein folding")
-        for r in results:
-            assert r["score"] <= 0.5
+        assert results == []      
 
     def test_top_k_respected(self):
         results = retrieve("travel", top_k=2)
@@ -108,12 +107,11 @@ class TestRetrieve:
         # No section should appear more than once
         assert len(sections) == len(set(sections))
 
-    def test_accepts_preloaded_chunks(self):
-        """Passing chunks= should skip file I/O and use the given list."""
-        custom_chunks = [
-            "Alpha Policy\nAlpha details about travel.",
-            "Beta Policy\nBeta details about something else.",
-        ]
-        results = retrieve("travel", chunks=custom_chunks)
-        assert len(results) > 0
-        assert "Alpha" in results[0]["section"]
+    def test_index_is_built_once_and_cached(self):
+        """retrieve() builds the TF-IDF index on first call and reuses it after."""
+        from src import retrieval
+        retrieve("travel")
+        first_index = retrieval._INDEX
+        assert first_index is not None
+        retrieve("remote work")
+        assert retrieval._INDEX is first_index  
