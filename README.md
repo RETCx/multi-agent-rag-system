@@ -176,7 +176,6 @@ multi-agent-rag-system/
 ├── README.md
 ├── pyproject.toml           # Project metadata, dependencies, pytest + linter config
 ├── requirements.txt         # Pinned runtime deps (for pip install -r)
-├── conftest.py              # Pytest package discovery (path config in pyproject.toml)
 ├── .env.example
 ├── .gitignore
 ├── data/
@@ -210,7 +209,7 @@ cd multi-agent-rag-system
 pip install -r requirements.txt        # runtime only
 # pip install -e ".[dev]"               # development (adds pytest, ruff, black)
 cp .env.example .env
-# Fill in OPENAI_API_KEY — .env.example is pre-configured for the shared Azure endpoint
+# Fill in OPENAI_API_KEY (see Environment variables table below for Azure vs standard OpenAI settings)
 python -m src.main
 ```
 
@@ -269,6 +268,10 @@ QUERY: What is the meal allowance for domestic and international travel?
 =======================================================
 
 ```
+
+For structured results of all 13 queries (retrieved sections, scores, and full answers), see [`data/sample_outputs.json`](data/sample_outputs.json).
+
+Terminal screenshots are in the [`screenshots/`](screenshots/) folder.
 
 ---
 
