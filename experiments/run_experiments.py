@@ -1,11 +1,8 @@
 import os
 import re
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from queries import TEST_CASES  # shared with main.py
+from src.queries import TEST_CASES
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "knowledge_base.txt")
 
@@ -56,16 +53,14 @@ def score_tfidf(query: str, chunks: list[str]) -> list[float]:
     processed_chunks = [preprocess_text(c) for c in chunks]
     processed_query = preprocess_text(query)
     
-    # sublinear_tf=True matches production retrieval.py configuration
     vectorizer = TfidfVectorizer(stop_words="english", sublinear_tf=True)
     try:
-        matrix = vectorizer.fit_transform(processed_chunks + [processed_query])
+        matrix = vectorizer.fit_transform(processed_chunks)
+        query_vec = vectorizer.transform([processed_query])
     except ValueError:
         return [0.0] * len(chunks)
-        
-    query_vec = matrix[-1]
-    chunk_vecs = matrix[:-1]
-    return cosine_similarity(query_vec, chunk_vecs).flatten().tolist()
+
+    return cosine_similarity(query_vec, matrix).flatten().tolist()
 
 # ─── Evaluate one permutation ─────────────────────────────────────────────────
 
