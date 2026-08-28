@@ -1,0 +1,1 @@
+# conftest.py — enables pytest to discover the src/ package
