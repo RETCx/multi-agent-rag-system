@@ -12,7 +12,7 @@ def create_data_retriever():
     Returns the raw snippet string.
     Temperature: 0 deterministic tool selection.
     """
-    llm_with_tools = get_llm(temperature=0).bind_tools([retrieve_from_knowledge_base])
+    llm_with_tools = get_llm(temperature=0).bind_tools([retrieve_from_knowledge_base],tool_choice='required')
 
     system_msg = SystemMessage(content=(
         "You are a Data Retriever agent specialized in information retrieval.\n"

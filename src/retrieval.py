@@ -8,6 +8,7 @@ DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "knowledge_bas
 THRESHOLD: float = 0.03
 TOP_K: int = 3
 MAX_CHUNKS_PER_SECTION: int = 2
+_INDEX: dict | None = None 
 
 
 def load_and_chunk(filepath: str = DATA_PATH) -> list[str]:
@@ -33,6 +34,15 @@ def _make_chunk_id(section: str, index: int) -> str:
     slug = re.sub(r"\W+", "_", section.lower()).strip("_")
     return f"{slug}_{index:02d}"
 
+def _build_index() -> None:
+    global _INDEX
+    if _INDEX is not None:
+        return
+    chunks = load_and_chunk()
+    processed = [preprocess_text(c) for c in chunks]
+    vectorizer = TfidfVectorizer(stop_words="english", sublinear_tf=True)
+    matrix = vectorizer.fit_transform(processed)
+    _INDEX = {"vectorizer": vectorizer, "matrix": matrix, "chunks": chunks}
 
 def retrieve(
     query: str,
@@ -43,32 +53,27 @@ def retrieve(
 ) -> list[dict]:
     """
     Search chunks using TF-IDF + cosine similarity.
-
     Returns up to top_k dicts with keys: chunk_id, text, section, score.
-    Applies threshold filter and section diversity filter before returning.
-    Accepts pre-loaded chunks to avoid redundant file I/O.
+
+    If chunks is provided, uses them directly instead of loading from file
+    (useful for testing with custom data).
     """
-    if chunks is None:
-        chunks = load_and_chunk()
+    if chunks is not None:
+        processed = [preprocess_text(c) for c in chunks]
+        vectorizer = TfidfVectorizer(stop_words="english", sublinear_tf=True)
+        chunk_vectors = vectorizer.fit_transform(processed)
+    else:
+        _build_index()
+        vectorizer = _INDEX["vectorizer"]
+        chunk_vectors = _INDEX["matrix"]
+        chunks = _INDEX["chunks"]
 
-    processed_chunks = [preprocess_text(c) for c in chunks]
-    processed_query = preprocess_text(query)
+    query_vec = vectorizer.transform([preprocess_text(query)])
+    scores = cosine_similarity(query_vec, chunk_vectors).flatten()
 
-    vectorizer = TfidfVectorizer(
-        stop_words="english",
-        sublinear_tf=True,
-    )
-    tfidf_matrix = vectorizer.fit_transform(processed_chunks + [processed_query])
-
-    query_vec = tfidf_matrix[-1]
-    chunk_vecs = tfidf_matrix[:-1]
-    scores = cosine_similarity(query_vec, chunk_vecs).flatten()
-
-    # Fetch more candidates than top_k to allow for diversity filtering
     candidate_count = min(top_k * 3, len(chunks))
     candidate_indices = scores.argsort()[-candidate_count:][::-1]
 
-    # Apply threshold + diversity filter
     seen_sections: dict[str, int] = {}
     results = []
     for i in candidate_indices:
@@ -86,19 +91,18 @@ def retrieve(
         })
         if len(results) == top_k:
             break
-
     return results
 
 
 @tool
 def retrieve_from_knowledge_base(query: str) -> list[str]:
     """Search knowledge_base.txt and return relevant text snippets for a given query."""
-    chunks = load_and_chunk()
-    results = retrieve(query, top_k=TOP_K, threshold=THRESHOLD, chunks=chunks)
+    results = retrieve(query, top_k=TOP_K, threshold=THRESHOLD)
+    chunk_count = len(_INDEX["chunks"])  
 
     print(f"\n{'─' * 55}")
     print(f"[Data Retriever] Query    : {query}")
-    print(f"[Data Retriever] Indexed  : {len(chunks)} chunks | top_k={TOP_K} | threshold={THRESHOLD}")
+    print(f"[Data Retriever] Indexed  : {chunk_count} chunks | top_k={TOP_K} | threshold={THRESHOLD}")
     if not results:
         print("[Data Retriever] Retrieved: (none above threshold)")
     else:
@@ -106,14 +110,7 @@ def retrieve_from_knowledge_base(query: str) -> list[str]:
             print(f"[Data Retriever] Retrieved: '{r['section']}' (score={r['score']})")
     print(f"{'─' * 55}")
 
-    if not results:
-        return []
-
-    output = []
-    for i, r in enumerate(results, 1):
-        output.append(r['text'])
-
-    return output
+    return [r["text"] for r in results]
 
 
 if __name__ == "__main__":
